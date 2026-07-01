@@ -878,6 +878,12 @@
         body: JSON.stringify({ action: 'submitAnswers', token: sessionToken, id, name, klass, date, responses })
       });
 
+      if (!response.ok) {
+        throw new Error('استجابة غير ناجحة من السيرفر: ' + response.status);
+      }
+
+      const data = await response.json();
+      
       if (data.status === 'error' && data.message && data.message.includes('الجلسة')) {
         // انتهت صلاحية رمز الجلسة (60 دقيقة) — يحتاج إعادة إدخال كلمة السر
         document.getElementById('reportLoadingState').style.display = 'none';
@@ -887,12 +893,6 @@
         alert('انتهت صلاحية جلستك (60 دقيقة). أعد إدخال كلمة السر للمتابعة — إجاباتك محفوظة ولن تُفقد.');
         return;
       }
-
-      if (!response.ok) {
-        throw new Error('استجابة غير ناجحة من السيرفر: ' + response.status);
-      }
-
-      const data = await response.json();
 
       if (data.status !== 'ok') {
         throw new Error(data.message || 'خطأ غير معروف من السيرفر');
