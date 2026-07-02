@@ -108,6 +108,25 @@
     .recommendation-card{ flex:1 1 230px; min-width:0; box-sizing:border-box; background:#fff; border-radius:14px; box-shadow:0 4px 14px rgba(0,0,0,0.06); padding:1rem 1.2rem; }
     .recommendation-card h5{ color:var(--ink); margin-bottom:0.5rem; font-size:0.92rem; }
 
+    /* النمط الشخصي (Emotional Profile) */
+    .profile-card{ background:linear-gradient(135deg,#1a2456 0%,#0d6efd 100%); border-radius:16px; padding:1.4rem 1.6rem; color:#fff; margin-bottom:1.4rem; }
+    .profile-card-name{ font-size:1.4rem; font-weight:800; margin-bottom:0.2rem; }
+    .profile-card-tagline{ font-size:0.88rem; opacity:0.85; margin-bottom:0.8rem; }
+    .profile-card-description{ font-size:0.9rem; line-height:1.85; opacity:0.95; }
+
+    /* بطاقة العلاقات المكتشفة */
+    .relationship-insights-box{ background:#fff8e1; border-radius:14px; border-right:4px solid #ffc107; padding:1rem 1.2rem; margin-bottom:1rem; }
+    .relationship-insights-box h5{ color:#b8860b; font-size:0.95rem; margin-bottom:0.6rem; }
+    .relationship-insights-list{ list-style:none; padding:0; margin:0; }
+    .relationship-insights-list li{ font-size:0.85rem; color:#555; padding:0.35rem 0; border-bottom:1px solid #ffeeba; line-height:1.7; }
+    .relationship-insights-list li:last-child{ border-bottom:none; }
+    .relationship-insights-list li::before{ content:"🔗 "; }
+
+    /* وضع PDF */
+    #reportContainer.pdf-export-mode .profile-card{ padding:0.9rem 1.1rem; }
+    #reportContainer.pdf-export-mode .profile-card-name{ font-size:1.1rem; }
+    #reportContainer.pdf-export-mode .profile-card-description{ font-size:0.78rem; }
+
     /* ===================== وضع تصدير PDF ===================== */
     /* يُضاف هذا الكلاس مؤقتًا على #reportContainer أثناء توليد PDF فقط، ويُزال
        فور الانتهاء. الهدف: (1) تصغير الخطوط والبطاقات بحيث يناسب حجم صفحة A4،
@@ -347,8 +366,21 @@
         </div>
         <div class="executive-summary-box">
           <h5>الملخص التنفيذي</h5>
-          <p id="executiveSummaryText" class="placeholder-text">سيتم توليد الملخص التنفيذي تلقائيًا بناءً على نتائج الطالب (يُبرمج في المرحلة القادمة).</p>
+          <p id="executiveSummaryText" class="placeholder-text">جاري التحليل...</p>
         </div>
+      </div>
+
+      <!-- النمط الشخصي -->
+      <div class="profile-card" id="emotionalProfileCard" style="display:none;">
+        <div class="profile-card-name" id="profileName"></div>
+        <div class="profile-card-tagline" id="profileTagline"></div>
+        <div class="profile-card-description" id="profileDescription"></div>
+      </div>
+
+      <!-- العلاقات المكتشفة -->
+      <div class="relationship-insights-box" id="relationshipInsightsBox" style="display:none;">
+        <h5>🔍 أنماط مكتشفة في ملفك العاطفي</h5>
+        <ul class="relationship-insights-list" id="relationshipInsightsList"></ul>
       </div>
 
       <div class="dashboard-section">
@@ -477,7 +509,7 @@
 
   // ================== رابط Google Apps Script Web App ==================
   // بعد نشر السكريبت (راجع ملف التعليمات)، الصق رابط الـ Web App هنا بين علامتي التنصيص
-  const GOOGLE_SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxr0mQilKLRla2DrxYFBRNPMwmReo-oXvY5GNM2wtwKrFgcuRhi3Dmuxzgwsrl7fSzTeg/exec";
+  const GOOGLE_SHEET_WEBHOOK_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
 
   // بيانات الأسئلة الكاملة (77 سؤال)
   const QUESTIONS = [
@@ -802,18 +834,42 @@
       const div = document.getElementById(containerId);
       div.classList.remove('placeholder-text');
       div.innerHTML = '';
-      const ul = document.createElement('ul');
-      ul.className = 'recommendation-list';
-      items.forEach(it => {
-        const li = document.createElement('li');
-        li.innerHTML = '<strong>' + it.label + ':</strong> ' + it.text;
-        ul.appendChild(li);
-      });
-      div.appendChild(ul);
+      if (Array.isArray(items)) {
+        const ul = document.createElement('ul');
+        ul.className = 'recommendation-list';
+        items.forEach(function(item) {
+          const li = document.createElement('li');
+          // item قد يكون نصاً مباشراً أو {label, text}
+          li.textContent = (typeof item === 'string') ? item : (item.label ? item.label + ': ' + item.text : item.text);
+          ul.appendChild(li);
+        });
+        div.appendChild(ul);
+      }
     }
     fillRecommendations('studentRecommendations', data.recommendations.student);
     fillRecommendations('parentRecommendations', data.recommendations.parent);
     fillRecommendations('teacherRecommendations', data.recommendations.teacher);
+
+    // النمط الشخصي
+    if (data.emotionalProfile) {
+      document.getElementById('profileName').textContent = data.emotionalProfile.name;
+      document.getElementById('profileTagline').textContent = data.emotionalProfile.tagline;
+      document.getElementById('profileDescription').textContent = data.emotionalProfile.description;
+      document.getElementById('emotionalProfileCard').style.display = 'block';
+    }
+
+    // العلاقات المكتشفة
+    if (data.relationshipInsights && data.relationshipInsights.length > 0) {
+      const rBox = document.getElementById('relationshipInsightsBox');
+      const rList = document.getElementById('relationshipInsightsList');
+      rList.innerHTML = '';
+      data.relationshipInsights.forEach(function(insight) {
+        const li = document.createElement('li');
+        li.textContent = insight;
+        rList.appendChild(li);
+      });
+      rBox.style.display = 'block';
+    }
 
     document.getElementById('knowNarrative').textContent = data.competencyNarratives.know;
     document.getElementById('chooseNarrative').textContent = data.competencyNarratives.choose;
@@ -878,14 +934,19 @@
         body: JSON.stringify({ action: 'submitAnswers', token: sessionToken, id, name, klass, date, responses })
       });
 
-      if (!response.ok) {
-        throw new Error('استجابة غير ناجحة من السيرفر: ' + response.status);
+      const submitResponse = await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'submitAnswers', token: sessionToken, id, name, klass, date, responses })
+      });
+
+      if (!submitResponse.ok) {
+        throw new Error('استجابة غير ناجحة من السيرفر: ' + submitResponse.status);
       }
 
-      const data = await response.json();
-      
-      if (data.status === 'error' && data.message && data.message.includes('الجلسة')) {
-        // انتهت صلاحية رمز الجلسة (60 دقيقة) — يحتاج إعادة إدخال كلمة السر
+      const submitData = await submitResponse.json();
+
+      if (submitData.status === 'error' && submitData.message && submitData.message.includes('الجلسة')) {
         document.getElementById('reportLoadingState').style.display = 'none';
         sessionToken = null;
         document.getElementById('survey').style.display = 'none';
@@ -894,12 +955,12 @@
         return;
       }
 
-      if (data.status !== 'ok') {
-        throw new Error(data.message || 'خطأ غير معروف من السيرفر');
+      if (submitData.status !== 'ok') {
+        throw new Error(submitData.message || 'خطأ غير معروف من السيرفر');
       }
 
       document.getElementById('reportLoadingState').style.display = 'none';
-      buildReportFromServerData(data, id, name, klass, date);
+      buildReportFromServerData(submitData, id, name, klass, date);
 
       // التقرير ظهر بنجاح: لا داعي لمسح localStorage فورًا (لو احتاج الطالب
       // يرجع للصفحة لاحقًا)، لكن نضمن عدم حدوث أي تعارض في الاستخدامات القادمة.
